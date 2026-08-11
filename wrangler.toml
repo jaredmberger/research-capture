@@ -2,5 +2,9 @@ name = "research-capture"
 main = "worker.js"
 compatibility_date = "2026-08-11"
 
+[[kv_namespaces]]
+binding = "CURATOR_RESEARCH_CAPTURES"
+id = "b43b1006793f48d2a38bbd091dbdc8ef"
+
 [observability]
 enabled = true
