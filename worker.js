@@ -108,6 +108,153 @@ async function requireCaptureToken(request, env) {
   );
 }
 
+
+async function requireRecoveryToken(request, env) {
+  if (!env.CAPTURE_TOKEN) {
+    return json(
+      {
+        ok: false,
+        error: "Recovery export is disabled because CAPTURE_TOKEN is not configured."
+      },
+      503
+    );
+  }
+
+  const supplied = request.headers.get("x-curator-capture-key");
+  if (supplied === env.CAPTURE_TOKEN) return null;
+
+  return json(
+    {
+      ok: false,
+      error: "Unauthorized recovery export request."
+    },
+    401
+  );
+}
+
+async function listAllCaptureEntries(env) {
+  const entries = [];
+  let cursor;
+
+  do {
+    const page = await env.CURATOR_RESEARCH_CAPTURES.list({
+      prefix: "capture:",
+      limit: 1000,
+      ...(cursor ? { cursor } : {})
+    });
+
+    for (const item of page.keys) {
+      const raw = await env.CURATOR_RESEARCH_CAPTURES.get(item.name, "text");
+      if (raw === null) {
+        throw new Error(`Listed capture key disappeared during export: ${item.name}`);
+      }
+
+      let value;
+      try {
+        value = JSON.parse(raw);
+      } catch {
+        throw new Error(`Capture key is not valid JSON: ${item.name}`);
+      }
+
+      entries.push({ key: item.name, value });
+    }
+
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  entries.sort((a, b) => a.key.localeCompare(b.key));
+  return entries;
+}
+
+async function sha256(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function recoveryExport(env) {
+  if (!env.CURATOR_RESEARCH_CAPTURES) {
+    return json(
+      {
+        ok: false,
+        error: "CURATOR_RESEARCH_CAPTURES binding is not configured."
+      },
+      500
+    );
+  }
+
+  try {
+    const captures = await listAllCaptureEntries(env);
+    const latestRaw = await env.CURATOR_RESEARCH_CAPTURES.get("latest", "text");
+    let latest = null;
+
+    if (latestRaw !== null) {
+      try {
+        latest = JSON.parse(latestRaw);
+      } catch {
+        return json(
+          {
+            ok: false,
+            error: "Recovery export refused because latest is not valid JSON."
+          },
+          500
+        );
+      }
+    }
+
+    const data = {
+      captures,
+      latest
+    };
+
+    const dataSha256 = await sha256(JSON.stringify(data));
+    const exportedAt = nowISO();
+
+    const payload = {
+      format: "research-capture-kv-recovery",
+      schemaVersion: 1,
+      exportedAt,
+      source: {
+        service: "Research Capture",
+        binding: "CURATOR_RESEARCH_CAPTURES",
+        namespaceId: "b43b1006793f48d2a38bbd091dbdc8ef",
+        keyPrefix: "capture:"
+      },
+      integrity: {
+        algorithm: "SHA-256",
+        dataSha256
+      },
+      summary: {
+        captureCount: captures.length,
+        hasLatest: latest !== null,
+        oldestKey: captures[0]?.key || null,
+        newestKey: captures[captures.length - 1]?.key || null
+      },
+      data
+    };
+
+    const stamp = exportedAt.replace(/[:.]/g, "-");
+    return new Response(JSON.stringify(payload, null, 2), {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "content-disposition": `attachment; filename="research-capture-recovery-${stamp}.json"`,
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff"
+      }
+    });
+  } catch (error) {
+    return json(
+      {
+        ok: false,
+        error: "Recovery export failed.",
+        detail: String(error?.message || error)
+      },
+      500
+    );
+  }
+}
+
 async function saveCapture(env, capture) {
   if (!env.CURATOR_RESEARCH_CAPTURES) {
     return {
@@ -325,6 +472,13 @@ export default {
         tokenProtection: Boolean(env.CAPTURE_TOKEN),
         time: nowISO()
       });
+    }
+
+
+    if (request.method === "GET" && url.pathname === "/api/recovery-export") {
+      const authError = await requireRecoveryToken(request, env);
+      if (authError) return authError;
+      return recoveryExport(env);
     }
 
     if (request.method === "GET" && url.pathname === "/api/recent") {
