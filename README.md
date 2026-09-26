@@ -31,6 +31,7 @@ If `CAPTURE_TOKEN` is configured, POST requests to `/api/capture` must include t
 ## Routes
 
 - `GET /api/health` — service/storage status
+- `GET /api/recovery-export` — authenticated full-KV recovery export; requires `CAPTURE_TOKEN`
 - `POST /api/capture` — receive and store a research capture
 - `GET /api/recent` — recent captures as JSON
 - `GET /recent` — searchable research inbox
@@ -65,3 +66,7 @@ Stored records add a UUID, storage timestamp, `status: "new"`, and a research st
 ## Shortcut JavaScript
 
 The Safari shortcut should gather the current selection and return an already-serialized `captureJSON` string so Shortcuts can POST the exact JSON bytes to `/api/capture` with `Content-Type: application/json`.
+
+## Disaster recovery
+
+A complete authenticated backup of the Research Capture KV archive is available through `/api/recovery-export`. It paginates the entire `capture:*` keyspace, includes the `latest` pointer, and embeds SHA-256 integrity metadata. See [`RECOVERY_EXPORT.md`](RECOVERY_EXPORT.md) for the iPad/Shortcut workflow and validation procedure.
