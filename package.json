@@ -1,0 +1,12 @@
+{
+  "name": "research-capture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/recovery-export.test.mjs",
+    "recovery:validate": "node scripts/validate-recovery-backup.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
