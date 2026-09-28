@@ -93,7 +93,15 @@ function normalizeCapture(input) {
 }
 
 async function requireCaptureToken(request, env) {
-  if (!env.CAPTURE_TOKEN) return null;
+  if (!env.CAPTURE_TOKEN) {
+    return json(
+      {
+        ok: false,
+        error: "Capture writes are disabled because CAPTURE_TOKEN is not configured."
+      },
+      503
+    );
+  }
 
   const supplied = request.headers.get("x-curator-capture-key");
 
@@ -482,6 +490,9 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname === "/api/recent") {
+      const authError = await requireCaptureToken(request, env);
+      if (authError) return authError;
+
       const requested = Number(url.searchParams.get("limit") || 30);
       const limit = Number.isFinite(requested)
         ? Math.min(Math.max(Math.trunc(requested), 1), 100)
