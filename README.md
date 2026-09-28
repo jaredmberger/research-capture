@@ -20,22 +20,24 @@ Expected KV binding:
 CURATOR_RESEARCH_CAPTURES
 ```
 
-Optional Worker secret:
+Required Worker secret:
 
 ```text
 CAPTURE_TOKEN
 ```
 
-If `CAPTURE_TOKEN` is configured, POST requests to `/api/capture` must include the same value in the `X-Curator-Capture-Key` header. If the secret is absent, capture posting remains open.
+`POST /api/capture`, `GET /api/recent`, and `GET /api/recovery-export` fail closed when `CAPTURE_TOKEN` is absent. Machine clients must send the same value in the `X-Curator-Capture-Key` header.
+
+The human `/` and `/recent` inbox pages should be protected at the hostname/application layer with Cloudflare Access. Do not put `CAPTURE_TOKEN` in a query string or client-side JavaScript.
 
 ## Routes
 
 - `GET /api/health` — service/storage status
 - `GET /api/recovery-export` — authenticated full-KV recovery export; requires `CAPTURE_TOKEN`
 - `POST /api/capture` — receive and store a research capture
-- `GET /api/recent` — recent captures as JSON
-- `GET /recent` — searchable research inbox
-- `GET /` — same research inbox
+- `GET /api/recent` — authenticated recent captures as JSON; requires `X-Curator-Capture-Key`
+- `GET /recent` — searchable research inbox; protect with Cloudflare Access
+- `GET /` — same research inbox; protect with Cloudflare Access
 
 ## Capture contract
 

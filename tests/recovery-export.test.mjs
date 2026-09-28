@@ -75,3 +75,35 @@ test("recovery export paginates all captures and includes integrity metadata", a
   assert.equal(body.data.latest.id, "c");
   assert.match(body.integrity.dataSha256, /^[a-f0-9]{64}$/);
 });
+
+
+test("capture write fails closed when CAPTURE_TOKEN is not configured", async () => {
+  const response = await worker.fetch(
+    new Request("https://example.test/api/capture", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        page: { url: "https://example.com/", title: "Example" },
+        selection: { text: "Selected text" }
+      })
+    }),
+    { CURATOR_RESEARCH_CAPTURES: makeStore({}) }
+  );
+  assert.equal(response.status, 503);
+});
+
+test("recent capture API requires CAPTURE_TOKEN", async () => {
+  const noToken = await worker.fetch(
+    new Request("https://example.test/api/recent"),
+    { CURATOR_RESEARCH_CAPTURES: makeStore({}) }
+  );
+  assert.equal(noToken.status, 503);
+
+  const wrong = await worker.fetch(
+    new Request("https://example.test/api/recent", {
+      headers: { "x-curator-capture-key": "wrong" }
+    }),
+    { CAPTURE_TOKEN: "right", CURATOR_RESEARCH_CAPTURES: makeStore({}) }
+  );
+  assert.equal(wrong.status, 401);
+});
