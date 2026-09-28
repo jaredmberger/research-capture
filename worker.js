@@ -16,7 +16,9 @@ function html(body, status = 200) {
     status,
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-store"
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-robots-tag": "noindex, nofollow, noarchive"
     }
   });
 }
