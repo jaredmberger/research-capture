@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/recovery-export.test.mjs",
-    "recovery:validate": "node scripts/validate-recovery-backup.mjs"
+    "recovery:validate": "node scripts/validate-recovery-backup.mjs",
+    "build:meta": "node scripts/write-build-meta.mjs"
   },
   "engines": {
     "node": ">=20"

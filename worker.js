@@ -1,3 +1,5 @@
+import { BUILD_META } from "./generated/build-meta.js";
+
 const VERSION = "1.0.0";
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -472,6 +474,28 @@ async function recentPage(env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/api/runtime") {
+      const meta = env.CF_VERSION_METADATA || {};
+      return json({
+        ok: true,
+        contractVersion: 1,
+        service: "Research Capture",
+        repository: "jaredmberger/research-capture",
+        productionBranch: "main",
+        version: VERSION,
+        commit: BUILD_META.commit || null,
+        cloudflareDeploymentId: meta.id || null,
+        runtime: "cloudflare-workers",
+        cloudflareVersion: {
+          id: meta.id || null,
+          tag: meta.tag || null,
+          timestamp: meta.timestamp || null
+        },
+        build: BUILD_META,
+        observedAt: nowISO()
+      });
+    }
 
     if (request.method === "GET" && url.pathname === "/api/health") {
       return json({
